@@ -1,25 +1,47 @@
- /* Implements the GroupClient Interface */
+/* Implements the GroupClient Interface */
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.spec.IvParameterSpec;
 
 import org.bouncycastle.openssl.PEMReader;
 import org.bouncycastle.util.encoders.Hex;
 
 public class GroupClient extends Client implements GroupClientInterface {
 	
-	protected X509Certificate cert;
+	private X509Certificate cert;
+	private PublicKey publicKey;
+	private Key sessionKey;
+	public String FSIP;
+	//IvParameterSpec currentIV;
 	
-	public GroupClient(String inputServer, int inputPort, ClientController _cc) {
-		super(inputServer, inputPort, _cc);
+	public GroupClient(String inputServer, int inputPort) {
+		super(inputServer, inputPort);
 		publicKey = null;
 		cert = null;
 		
@@ -119,7 +141,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 		{
 			//Envelope message = null, response = null;
 			SecureEnvelope secureMessage = null;
-			SecureEnvelope response = null;
+			Envelope response = null;
 			
 			// Create the secure message
 			secureMessage = new SecureEnvelope("SESSIONINIT");
@@ -131,22 +153,18 @@ public class GroupClient extends Client implements GroupClientInterface {
 			output.writeObject(secureMessage);
 		
 			// Get the response from the server
-			response = (SecureEnvelope)input.readObject();
-			
-			ArrayList<Object> objectList = getDecryptedPayload(response);
-			String responsemsg = (String) objectList.get(0);
+			response = (Envelope)input.readObject();
 			
 			//Successful response
-			if(responsemsg.equals("OK"))
+			if(response.getMessage().equals("OK"))
 			{
 				//If there is a token in the Envelope, return it 
 				ArrayList<Object> temp = null;
 				temp = response.getObjContents();
 				
-				if(temp.size() == 3)
+				if(temp.size() == 1)
 				{
-					usercounter = (Integer)temp.get(1);
-					int returnNonce = (Integer)temp.get(2);
+					int returnNonce = (Integer)temp.get(0);
 					return returnNonce;
 				}
 			}
@@ -161,11 +179,11 @@ public class GroupClient extends Client implements GroupClientInterface {
 		}
 	}
 
-	public Token getToken(String username, String password)
+	public UserToken getToken(String username, String password)
 	 {
 		try
 		{
-			Token token = null;
+			UserToken token = null;
 			//Envelope message = null, response = null;
 		 	SecureEnvelope message, response = null;
 			
@@ -185,20 +203,65 @@ public class GroupClient extends Client implements GroupClientInterface {
 			//Get the response from the server
 			response = (SecureEnvelope)input.readObject();
 			
-			ArrayList<Object> objectList = getDecryptedPayload(response);
-			String responsemsg = (String) objectList.get(0);
 			//Successful response
-			if(responsemsg.equals("OK"))
-			{	
-				if(objectList.size() == 3)
+			if(response.getMessage().equals("OK"))
+			{
+				//If there is a token in the Envelope, return it 
+				ArrayList<Object> temp = null;
+				temp = getDecryptedPayload(response);
+				
+				if(temp.size() == 1)
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
-					token = (Token)objectList.get(2);
+					token = (UserToken)temp.get(0);
+					return token;
+				}
+			}
+			
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+		
+	 }
+	
+	public UserToken updateToken(UserToken old, String IP)
+	 {
+		try
+		{
+			UserToken token = null;
+			//Envelope message = null, response = null;
+		 	SecureEnvelope message, response = null;
+			
+			// Make a temporary ArrayList which which be converted to a byte array
+			ArrayList<Object> tempList = new ArrayList<Object>();
+			
+			// Add the username
+			tempList.add(old);
+			tempList.add(IP);
+			
+			// Make a new SecureEnvelope using the appropriate method
+			// Set the message type to GET to return a token
+			message = makeSecureEnvelope("UTOKEN", tempList);
+			
+			output.writeObject(message);
+		
+			//Get the response from the server
+			response = (SecureEnvelope)input.readObject();
+			
+			//Successful response
+			if(response.getMessage().equals("UPDATED"))
+			{
+				//If there is a token in the Envelope, return it 
+				ArrayList<Object> temp = null;
+				temp = getDecryptedPayload(response);
+				
+				if(temp.size() == 1)
+				{
+					token = (UserToken)temp.get(0);
 					return token;
 				}
 			}
@@ -227,18 +290,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -264,18 +319,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -301,18 +348,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -338,18 +377,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)list.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -376,19 +407,11 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
-					return (ArrayList<String>)(getDecryptedPayload(secureResponse).get(2));
+					return (ArrayList<String>)(getDecryptedPayload(secureResponse).get(0));
 				}
 				
 				return null;
@@ -414,18 +437,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -452,18 +467,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -490,18 +497,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				output.writeObject(secureMessage);
 				
 				secureResponse = (SecureEnvelope)input.readObject();
-				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
-				String responsemsg = (String)objectList.get(0);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(secureResponse.getMessage().equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -514,4 +513,118 @@ public class GroupClient extends Client implements GroupClientInterface {
 				return false;
 			}
 	 }
+	 
+	 
+	 /* Crypto Related Methods
+		 * 
+		 * These methods will abstract the whole secure session process.
+		 * 
+		 */
+	 
+	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
+		// Make a new envelope
+		SecureEnvelope envelope = new SecureEnvelope(msg);
+		
+		// Create new ivSpec
+		IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
+		
+		// Set the ivSpec in the envelope
+		envelope.setIV(ivSpec.getIV());
+		
+		// Set the payload using the encrypted ArrayList
+		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));
+		
+		return envelope;
+		
+	}
+	
+	private byte[] encryptPayload(byte[] plainText, boolean useSessionKey, IvParameterSpec ivSpec) {
+		byte[] cipherText = null;
+		Cipher inCipher;
+		
+		if (useSessionKey) {
+			// TODO
+			try {
+				inCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+				inCipher.init(Cipher.ENCRYPT_MODE, sessionKey, ivSpec);
+				cipherText = inCipher.doFinal(plainText);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		else { // Use public key RSA
+			try {
+				inCipher = Cipher.getInstance("RSA", "BC");
+				inCipher.init(Cipher.ENCRYPT_MODE, publicKey, new SecureRandom());
+				System.out.println("plainText length: " + plainText.length);
+				cipherText = inCipher.doFinal(plainText);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		return cipherText;
+	}
+	
+	private ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
+		// Using this wrapper method in case the envelope changes at all :)
+		return byteArrayToList(decryptPayload(envelope.getPayload(), new IvParameterSpec(envelope.getIV())));
+	}
+	
+	private byte[] decryptPayload(byte[] cipherText, IvParameterSpec ivSpec) {
+		Cipher outCipher = null;
+		byte[] plainText = null;
+		
+		try {
+			outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
+			outCipher.init(Cipher.DECRYPT_MODE, sessionKey, ivSpec);
+			plainText = outCipher.doFinal(cipherText);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return plainText;
+	}
+	
+	private byte[] listToByteArray(ArrayList<Object> list) {
+		byte[] returnBytes = null;
+		
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream out = null;
+		try {
+		  out = new ObjectOutputStream(bos);   
+		  out.writeObject(list);
+		  returnBytes = bos.toByteArray();
+		  out.close();
+		  bos.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return returnBytes;
+	}
+	
+	private ArrayList<Object> byteArrayToList(byte[] byteArray) {
+		ArrayList<Object> list = null;
+		
+		ByteArrayInputStream bis = new ByteArrayInputStream(byteArray);
+		ObjectInput in = null;
+		try {
+		  in = new ObjectInputStream(bis);
+		  Object object = in.readObject();
+		  list = (ArrayList<Object>)object;
+		  bis.close();
+		  in.close();
+		  
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return list;
+	}
 }

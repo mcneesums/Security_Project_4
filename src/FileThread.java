@@ -1,6 +1,7 @@
 /* File worker thread handles the business of uploading, downloading, and removing files for clients with valid tokens */
 
 import java.lang.Thread;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.security.Key;
 import java.security.SecureRandom;
@@ -24,8 +25,7 @@ public class FileThread extends Thread
 	private final Socket socket;
 	private FileServer my_fs;
 	private Key sessionKey;
-	private int usercounter;
-	
+
 	public FileThread(Socket _socket, FileServer _fs)
 	{
 		socket = _socket;
@@ -70,15 +70,26 @@ public class FileThread extends Thread
 						// Get the list from the SecureEnvelope, false because it's NOT using the session key
 						ArrayList<Object> objectList = getDecryptedPayload(secureMessage, false);
 						// Make sure it doesn't return null and it has two elements in the list
-						if (!(objectList == null) && (objectList.size() == 2)) {
+						if (!(objectList == null) && (objectList.size() == 3)) {
 							// Grab the session 
 							sessionKey = (Key)objectList.get(0);
 							int nonce = (Integer)objectList.get(1);
-							nonce = nonce - 1; // nonce - 1 to return
-							response = new Envelope("OK");
-							response.addObject(nonce);
-							output.writeObject(response);
-							// Reset the input stream for a secure connection
+							String IP = (String)objectList.get(2);
+							InetAddress myIP = InetAddress.getLocalHost();
+							String mine = myIP.getHostAddress();
+							if(!IP.equals(mine))
+							{
+								response = new Envelope("FAIL");
+								output.writeObject(response);
+							}
+							else
+							{
+								nonce = nonce - 1; // nonce - 1 to return
+								response = new Envelope("OK");
+								response.addObject(nonce);
+								output.writeObject(response);
+								// Reset the input stream for a secure connection
+							}
 							
 						}
 					}
@@ -362,26 +373,16 @@ public class FileThread extends Thread
 	 * These methods will abstract the whole secure session process.
 	 * 
 	 */
-	private  SecureEnvelope makeSecureEnvelope(String msg)
-	{
-		ArrayList<Object> list = new ArrayList<Object>();
-		return makeSecureEnvelope(msg, list);
-	}
 	
 	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
-		SecureEnvelope envelope = new SecureEnvelope("");
+		SecureEnvelope envelope = new SecureEnvelope(msg);
 		
 		// Create new ivSpec
 		IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
 		
 		// Set the ivSpec in the envelope
 		envelope.setIV(ivSpec.getIV());
-		
-		usercounter++;
-		
-		list.add(0, usercounter);
-		list.add(0, msg);
 		
 		// Set the payload using the encrypted ArrayList
 		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));
@@ -521,19 +522,6 @@ public class FileThread extends Thread
 		
 		System.out.println("Token verified: " + verified);
 		
-		return verified;
-	}
-	
-	private boolean verifyCounter(int numcount)
-	{
-		boolean verified = false;
-		usercounter++;
-		
-		if(numcount == usercounter)
-		{	
-			verified = true;
-		}
-
 		return verified;
 	}
 

@@ -27,7 +27,6 @@ public class GroupThread extends Thread
 	private final Socket socket;
 	private GroupServer my_gs;
 	private Key sessionKey;
-	private int usercounter;
 	
 	public GroupThread(Socket _socket, GroupServer _gs)
 	{
@@ -51,11 +50,11 @@ public class GroupThread extends Thread
 			{
 				SecureEnvelope secureMessage = (SecureEnvelope)input.readObject();
 				SecureEnvelope secureResponse = null;
+				
+				System.out.println("Request received: " + secureMessage.getMessage());
 
-				if(secureMessage.getMessage().equals("SESSIONINIT"))
+				if(secureMessage.getMessage().equals("SESSIONINIT")) // Client wants to initialize a secure session
 				{
-					System.out.println("Request received: " + secureMessage.getMessage());
-
 					// ONLY USE UNSECURE ENVELOPE FOR RETURNING THE NONCE!!!
 					// NOWHERE ELSE!
 					Envelope response;
@@ -73,13 +72,7 @@ public class GroupThread extends Thread
 							sessionKey = (Key)objectList.get(0);
 							int nonce = (Integer)objectList.get(1);
 							nonce = nonce - 1; // nonce - 1 to return
-							
-							// Will create a name number for the counter to start at
-							SecureRandom rand = new SecureRandom();
-							usercounter = rand.nextInt();
-							
-							response = makeSecureEnvelope("OK");
-
+							response = new Envelope("OK");
 							response.addObject(nonce);
 							output.writeObject(response);
 							// Reset the input stream for a secure connection
@@ -87,382 +80,349 @@ public class GroupThread extends Thread
 						}
 					}
 				}
-				else
+				else if(secureMessage.getMessage().equals("GET"))//Client wants a token
 				{
-					//Probably should add a check to see if the payload is null
-					ArrayList<Object> messageList = getDecryptedPayload(secureMessage, true);
-					String message = (String) messageList.get(0);
-	
-					if(message.equals("GET"))//Client wants a token
+					//String username = (String)list.get(0); //Get the username
+					
+					String username = null;
+					
+					if(secureMessage.getPayload() == null)
 					{
-						//String username = (String)list.get(0); //Get the username
-						
-						String username = null;
-						
-						if(secureMessage.getPayload() == null)
-						{
-							secureResponse = makeSecureEnvelope("FAIL");
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+					}
+					else {
+						// Get the decrypted payload, TRUE because it's using the session key
+						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+						// Get the username from the object list
+						if(list.size() < 2){
+							secureResponse = new SecureEnvelope("FAIL");
+							output.writeObject(secureResponse);
+						}
+						username = (String)list.get(0);
+						String password = (String)list.get(1);
+						// If the username is null, send a FAIL message
+						if ((username == null) || (!my_gs.userList.checkUser(username))) {
+							//System.out.println("username: " + username);
+							secureResponse = new SecureEnvelope("FAIL");
 							output.writeObject(secureResponse);
 						}
 						else {
-							// Get the decrypted payload, TRUE because it's using the session key
-							ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-							// Get the username from the object list
-							if(list.size() < 4){
-								secureResponse = makeSecureEnvelope("FAIL");
-								output.writeObject(secureResponse);
-							}
-							int countertemp = (Integer)list.get(1);
-							if(!verifyCounter(countertemp))
-							{
-								System.out.println("Counter not correct. Not a safe message. Closing network!");
-								System.exit(0);
-							}
-							username = (String)list.get(2);
-							String password = (String)list.get(3);
-							// If the username is null, send a FAIL message
-							if ((username == null) || (!my_gs.userList.checkUser(username))) {
-								//System.out.println("username: " + username);
-								secureResponse = makeSecureEnvelope("FAIL");
-								output.writeObject(secureResponse);
-							}
-							else {
-								// Create the token for the user specified
-								UserToken yourToken = createToken(username, password);
-								ArrayList<Object> newList = new ArrayList<Object>();
-								newList.add(yourToken);
-								// Respond to the client. On error, the client will receive a null token
-								secureResponse = makeSecureEnvelope("OK", newList);
-								secureResponse.addObject(yourToken);
-								output.writeObject(secureResponse);
-							}
+							// Create the token for the user specified
+							UserToken yourToken = createToken(username, password);
+							ArrayList<Object> newList = new ArrayList<Object>();
+							newList.add(yourToken);
+							// Respond to the client. On error, the client will receive a null token
+							secureResponse = makeSecureEnvelope("OK", newList);
+							secureResponse.addObject(yourToken);
+							output.writeObject(secureResponse);
 						}
 					}
-					else if(message.equals("CUSER")) //Client wants to create a user
+				}
+				else if(secureMessage.getMessage().equals("UTOKEN"))	//they want to update token with IP address
+				{
+					String IP = null;
+					if(secureMessage.getPayload() == null)
 					{
-						
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 5)
-						{
-							secureResponse = makeSecureEnvelope("FAIL");
-						}
-						else
-						{
-							secureResponse = makeSecureEnvelope("FAIL");
-							
-							if(list.get(2) != null && list.get(3) != null && list.get(4) != null)
-							{
-									int countertemp = (Integer)list.get(1);
-									if(!verifyCounter(countertemp))
-									{
-										System.out.println("Counter not correct. Not a safe message. Closing network!");
-										System.exit(0);
-									}
-								
-									String username = (String)list.get(2); //Extract the username
-								    String password = (String)list.get(3);
-								    Token yourToken = (Token)list.get(4); //Extract the token
-
-								    System.out.println("Create user: " + username + ", password: " + password);
-								    if (!verifyToken(yourToken)) {
-									    secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-								    }
-								    else
-								    {
-									if(createUser(username, password, yourToken))
-									{
-										secureResponse = makeSecureEnvelope("OK"); //Success
-									}
-								    }
-							}
-						}
-						
+						secureResponse = new SecureEnvelope("FAIL");
 						output.writeObject(secureResponse);
 					}
-					else if(message.equals("DUSER")) //Client wants to delete a user
+					else
 					{
+						// Get the decrypted payload, TRUE because it's using the session key
 						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 4)
+						// Get the username from the object list
+						if(list.size() != 2)
 						{
-							secureResponse = makeSecureEnvelope("FAIL");
+							secureResponse = new SecureEnvelope("FAIL");
+							output.writeObject(secureResponse);
 						}
 						else
 						{
-							secureResponse = makeSecureEnvelope("FAIL");
-							
-							if(list.get(2) != null)
-							{
-								if(list.get(3) != null)
+							Token old = (Token)list.get(0);
+							IP = (String)list.get(1);
+							Token updated = new Token(old.getIssuer(), old.getSubject(), old.getGroups(), old.getSignature(), IP);
+							ArrayList<Object> newList = new ArrayList<Object>();
+							newList.add(updated);
+							// Respond to the client. On error, the client will receive a null token
+							secureResponse = makeSecureEnvelope("UPDATED", newList);
+							secureResponse.addObject(updated);
+							output.writeObject(secureResponse);
+						}
+					}
+				}
+				else if(secureMessage.getMessage().equals("CUSER")) //Client wants to create a user
+				{
+					
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 3)
+					{
+						secureResponse = new SecureEnvelope("FAIL");
+					}
+					else
+					{
+						secureResponse = new SecureEnvelope("FAIL");
+						
+						if(list.get(0) != null && list.get(1) != null && list.get(2) != null)
+						{
+							    String username = (String)list.get(0); //Extract the username
+							    String password = (String)list.get(1);
+							    Token yourToken = (Token)list.get(2); //Extract the token
+
+							    System.out.println("Create user: " + username + ", password: " + password);
+							    if (!verifyToken(yourToken)) {
+								    secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+							    }
+							    else
+							    {
+								if(createUser(username, password, yourToken))
 								{
-									int countertemp = (Integer)list.get(1);
-									if(!verifyCounter(countertemp))
+									secureResponse = new SecureEnvelope("OK"); //Success
+								}
+							    }
+						}
+					}
+					
+					output.writeObject(secureResponse);
+				}
+				else if(secureMessage.getMessage().equals("DUSER")) //Client wants to delete a user
+				{
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 2)
+					{
+						secureResponse = new SecureEnvelope("FAIL");
+					}
+					else
+					{
+						secureResponse = new SecureEnvelope("FAIL");
+						
+						if(list.get(0) != null)
+						{
+							if(list.get(1) != null)
+							{
+								String username = (String)list.get(0); //Extract the username
+								Token yourToken = (Token)list.get(1); //Extract the token
+								
+								if (!verifyToken(yourToken)) {
+									secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+								}
+								else {
+									if(deleteUser(username, yourToken))
 									{
-										System.out.println("Counter not correct. Not a safe message. Closing network!");
-										System.exit(0);
-									}
-									
-									String username = (String)list.get(2); //Extract the username
-									Token yourToken = (Token)list.get(3); //Extract the token
-									
-									if (!verifyToken(yourToken)) {
-										secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-									}
-									else {
-										if(deleteUser(username, yourToken))
-										{
-											secureResponse = makeSecureEnvelope("OK"); //Success
-										}
+										secureResponse = new SecureEnvelope("OK"); //Success
 									}
 								}
 							}
 						}
+					}
+					
+					output.writeObject(secureResponse);
+				}
+				else if(secureMessage.getMessage().equals("CGROUP")) //Client wants to create a group
+				{
+				    /* Create Group:
+						Any user can create a group
+						Owner of the group.
+				    */
+					
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					// Make sure contents are correct
+					if(list.size() < 2){
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+						return;
+					}
+					String groupname = (String)list.get(0);
+					Token yourToken = (Token)list.get(1); //Extract the token
+					if (!verifyToken(yourToken)) {
+						secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+						output.writeObject(secureResponse);
+					}
+					else {
+						if (createGroup(groupname, yourToken)) {
+							secureResponse = new SecureEnvelope("OK");
+						}
+						else {
+							secureResponse = new SecureEnvelope("FAIL");
+						}
 						
 						output.writeObject(secureResponse);
 					}
-					else if(message.equals("CGROUP")) //Client wants to create a group
-					{
-					    /* Create Group:
-							Any user can create a group
-							Owner of the group.
-					    */
-						
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						// Make sure contents are correct
-						if(list.size() < 4){
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-							return;
-						}
-						int countertemp = (Integer)list.get(1);
-						if(!verifyCounter(countertemp))
-						{
-							System.out.println("Counter not correct. Not a safe message. Closing network!");
-							System.exit(0);
-						}
-						
-						String groupname = (String)list.get(2);
-						Token yourToken = (Token)list.get(3); //Extract the token
-						if (!verifyToken(yourToken)) {
-							secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-							output.writeObject(secureResponse);
-						}
-						else {
-							if (createGroup(groupname, yourToken)) {
-								secureResponse = makeSecureEnvelope("OK");
-							}
-							else {
-								secureResponse = makeSecureEnvelope("FAIL");
-							}
-							
-							output.writeObject(secureResponse);
-						}
-					}
-					else if(message.equals("DGROUP")) //Client wants to delete a group
-					{
-					    /*
-							boolean deleteGroup(String groupname, UserToken token)
-							This method allows the owner of token to delete the specified group, provided that
-							they are the owner of that group. After deleting a group, no user should be a member
-							of that group.
-					    */
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+				}
+				else if(secureMessage.getMessage().equals("DGROUP")) //Client wants to delete a group
+				{
+				    /*
+						boolean deleteGroup(String groupname, UserToken token)
+						This method allows the owner of token to delete the specified group, provided that
+						they are the owner of that group. After deleting a group, no user should be a member
+						of that group.
+				    */
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
 
-						if(list.size() < 4) {
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-						}
-						else {
-							int countertemp = (Integer)list.get(1);
-							if(!verifyCounter(countertemp))
-							{
-								System.out.println("Counter not correct. Not a safe message. Closing network!");
-								System.exit(0);
-							}
-							
-							String groupname = (String)list.get(2);
-							Token yourToken = (Token)list.get(3); //Extract the token
-
-							// deleteGroup method does all the work
-							if (deleteGroup(groupname, yourToken)) {
-								secureResponse = makeSecureEnvelope("OK");
-							}
-							else {
-								secureResponse = makeSecureEnvelope("FAIL");
-							}
-								
-							output.writeObject(secureResponse);
-						}
-					}
-					else if(message.equals("LMEMBERS")) //Client wants a list of members in a group
-					{
-					    /*
-							List<String> listMembers(String group, UserToken token)
-							Provided that the owner of token is also the owner of group, this method will return
-							a list of all users that are currently members of group
-					    */
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 4){
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-							return;
-						}
-						int countertemp = (Integer)list.get(1);
-						if(!verifyCounter(countertemp))
-						{
-							System.out.println("Counter not correct. Not a safe message. Closing network!");
-							System.exit(0);
-						}
-						
-						String groupname = (String)list.get(2);
-						Token yourToken = (Token)list.get(3); //Extract the token
-						String username = yourToken.getSubject();
-						
-						if (!verifyToken(yourToken)) {
-							secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-							output.writeObject(secureResponse);
-						}
-						else {
-							if(!my_gs.groupList.isMember(groupname, username)) {
-								secureResponse = makeSecureEnvelope("FAIL");
-								output.writeObject(secureResponse);
-							}
-							else {
-								ArrayList<Object> newList = new ArrayList<Object>();
-								newList.add(new ArrayList<String>(my_gs.groupList.getMembers(groupname)));
-								secureResponse = makeSecureEnvelope("OK", newList);
-								output.writeObject(secureResponse);
-		
-							}
-						}
-
-					}
-					else if(message.equals("AUSERTOGROUP")) //Client wants to add user to a group
-					{
-					    /*
-							boolean addUserToGroup(String user, String group, UserToken token)
-							This method enables the owner of token to add the user user to the group group.
-							This operation requires that the owner of token is also the owner of group.
-					    */
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 5){
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-							return;
-						}
-						int countertemp = (Integer)list.get(1);
-						if(!verifyCounter(countertemp))
-						{
-							System.out.println("Counter not correct. Not a safe message. Closing network!");
-							System.exit(0);
-						}
-						
-						String userToAdd = (String)list.get(2);
-						String groupname = (String)list.get(3);
-						Token yourToken = (Token)list.get(4); //Extract the token
-						if (!verifyToken(yourToken)) {
-							secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-							output.writeObject(secureResponse);
-						}
-						else {
-							if (addUserToGroup(groupname, userToAdd, yourToken)) {
-								secureResponse = makeSecureEnvelope("OK");
-							}
-							else {
-								secureResponse = makeSecureEnvelope("FAIL");
-							}
-							
-							output.writeObject(secureResponse);	
-						}
-					}
-					else if(message.equals("AOWNERTOGROUP")) // Client wants to add owner to a group
-					{
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 5){
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-							return;
-						}
-						int countertemp = (Integer)list.get(1);
-						if(!verifyCounter(countertemp))
-						{
-							System.out.println("Counter not correct. Not a safe message. Closing network!");
-							System.exit(0);
-						}
-
-						String userToAdd = (String)list.get(2);
-						String groupname = (String)list.get(3);
-						Token yourToken = (Token)list.get(4); //Extract the token
-						if (!verifyToken(yourToken)) {
-							secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-							output.writeObject(secureResponse);
-						}
-						else {
-							if (addOwnerToGroup(groupname, userToAdd, yourToken)) {
-								secureResponse = makeSecureEnvelope("OK");
-							}
-							else {
-								secureResponse = makeSecureEnvelope("FAIL");
-							}
-							
-							output.writeObject(secureResponse);	
-						}
-					}
-					else if(message.equals("RUSERFROMGROUP")) //Client wants to remove user from a group
-					{
-					    /*
-							boolean deleteUserFromGroup(String user, String group, UserToken token)
-							This method enables the owner of token to remove the user user from the group
-							group. This operation requires that the owner of token is also the owner of group.
-					    */
-						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
-						
-						if(list.size() < 5){
-							secureResponse = makeSecureEnvelope("FAIL");
-							output.writeObject(secureResponse);
-							return;
-						}
-						int countertemp = (Integer)list.get(1);
-						if(!verifyCounter(countertemp))
-						{
-							System.out.println("Counter not correct. Not a safe message. Closing network!");
-							System.exit(0);
-						}
-						
-						String userToRemove = (String) list.get(2);
-						String groupname = (String)list.get(3);
-						Token yourToken = (Token)list.get(4); //Extract the token
-						
-						if (!verifyToken(yourToken)) {
-							secureResponse = makeSecureEnvelope("FAIL-MODIFIEDTOKEN");
-							output.writeObject(secureResponse);
-						}
-						else {
-							if (removeUserFromGroup(groupname, userToRemove, yourToken)) {
-								secureResponse = makeSecureEnvelope("OK");
-							}
-							else {
-								secureResponse = makeSecureEnvelope("FAIL");
-							}
-							
-							output.writeObject(secureResponse);	
-						}
-					}
-					else if(message.equals("DISCONNECT")) //Client wants to disconnect
-					{
-						socket.close(); //Close the socket
-						proceed = false; //End this communication loop
-					}
-					else
-					{
-						secureResponse = makeSecureEnvelope("FAIL"); //Server does not understand client request
+					if(list.size() < 2) {
+						secureResponse = new SecureEnvelope("FAIL");
 						output.writeObject(secureResponse);
 					}
+					else {
+						String groupname = (String)list.get(0);
+						Token yourToken = (Token)list.get(1); //Extract the token
+
+						// deleteGroup method does all the work
+						if (deleteGroup(groupname, yourToken)) {
+							secureResponse = new SecureEnvelope("OK");
+						}
+						else {
+							secureResponse = new SecureEnvelope("FAIL");
+						}
+							
+						output.writeObject(secureResponse);
+					}
+				}
+				else if(secureMessage.getMessage().equals("LMEMBERS")) //Client wants a list of members in a group
+				{
+				    /*
+						List<String> listMembers(String group, UserToken token)
+						Provided that the owner of token is also the owner of group, this method will return
+						a list of all users that are currently members of group
+				    */
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 2){
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+						return;
+					}
+
+					String groupname = (String)list.get(0);
+					Token yourToken = (Token)list.get(1); //Extract the token
+					String username = yourToken.getSubject();
+					
+					if (!verifyToken(yourToken)) {
+						secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+						output.writeObject(secureResponse);
+					}
+					else {
+						if(!my_gs.groupList.isMember(groupname, username)) {
+							secureResponse = new SecureEnvelope("FAIL");
+							output.writeObject(secureResponse);
+						}
+						else {
+							ArrayList<Object> newList = new ArrayList<Object>();
+							newList.add(new ArrayList<String>(my_gs.groupList.getMembers(groupname)));
+							secureResponse = makeSecureEnvelope("OK", newList);
+							output.writeObject(secureResponse);
+	
+						}
+					}
+
+				}
+				else if(secureMessage.getMessage().equals("AUSERTOGROUP")) //Client wants to add user to a group
+				{
+				    /*
+						boolean addUserToGroup(String user, String group, UserToken token)
+						This method enables the owner of token to add the user user to the group group.
+						This operation requires that the owner of token is also the owner of group.
+				    */
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 2){
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+						return;
+					}
+
+					String userToAdd = (String)list.get(0);
+					String groupname = (String)list.get(1);
+					Token yourToken = (Token)list.get(2); //Extract the token
+					if (!verifyToken(yourToken)) {
+						secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+						output.writeObject(secureResponse);
+					}
+					else {
+						if (addUserToGroup(groupname, userToAdd, yourToken)) {
+							secureResponse = new SecureEnvelope("OK");
+						}
+						else {
+							secureResponse = new SecureEnvelope("FAIL");
+						}
+						
+						output.writeObject(secureResponse);	
+					}
+				}
+				else if(secureMessage.getMessage().equals("AOWNERTOGROUP")) // Client wants to add owner to a group
+				{
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 2){
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+						return;
+					}
+
+					String userToAdd = (String)list.get(0);
+					String groupname = (String)list.get(1);
+					Token yourToken = (Token)list.get(2); //Extract the token
+					if (!verifyToken(yourToken)) {
+						secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+						output.writeObject(secureResponse);
+					}
+					else {
+						if (addOwnerToGroup(groupname, userToAdd, yourToken)) {
+							secureResponse = new SecureEnvelope("OK");
+						}
+						else {
+							secureResponse = new SecureEnvelope("FAIL");
+						}
+						
+						output.writeObject(secureResponse);	
+					}
+				}
+				else if(secureMessage.getMessage().equals("RUSERFROMGROUP")) //Client wants to remove user from a group
+				{
+				    /*
+						boolean deleteUserFromGroup(String user, String group, UserToken token)
+						This method enables the owner of token to remove the user user from the group
+						group. This operation requires that the owner of token is also the owner of group.
+				    */
+					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+					
+					if(list.size() < 3){
+						secureResponse = new SecureEnvelope("FAIL");
+						output.writeObject(secureResponse);
+						return;
+					}
+
+					String userToRemove = (String) list.get(0);
+					String groupname = (String)list.get(1);
+					Token yourToken = (Token)list.get(2); //Extract the token
+					
+					if (!verifyToken(yourToken)) {
+						secureResponse = new SecureEnvelope("FAIL-MODIFIEDTOKEN");
+						output.writeObject(secureResponse);
+					}
+					else {
+						if (removeUserFromGroup(groupname, userToRemove, yourToken)) {
+							secureResponse = new SecureEnvelope("OK");
+						}
+						else {
+							secureResponse = new SecureEnvelope("FAIL");
+						}
+						
+						output.writeObject(secureResponse);	
+					}
+				}
+				else if(secureMessage.getMessage().equals("DISCONNECT")) //Client wants to disconnect
+				{
+					socket.close(); //Close the socket
+					proceed = false; //End this communication loop
+				}
+				else
+				{
+					secureResponse = new SecureEnvelope("FAIL"); //Server does not understand client request
+					output.writeObject(secureResponse);
 				}
 			}while(proceed);	
 		}
@@ -669,27 +629,16 @@ public class GroupThread extends Thread
 	 * These methods will abstract the whole secure session process.
 	 * 
 	 */
-	private  SecureEnvelope makeSecureEnvelope(String msg)
-	{
-		ArrayList<Object> list = new ArrayList<Object>();
-		return makeSecureEnvelope(msg, list);
-	}
-
 	
 	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
-		SecureEnvelope envelope = new SecureEnvelope("");
+		SecureEnvelope envelope = new SecureEnvelope(msg);
 		
 		// Create new ivSpec
 		IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
 		
 		// Set the ivSpec in the envelope
 		envelope.setIV(ivSpec.getIV());
-
-		usercounter++;
-		
-		list.add(0, usercounter);
-		list.add(0, msg);
 		
 		// Set the payload using the encrypted ArrayList
 		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));
@@ -822,19 +771,6 @@ public class GroupThread extends Thread
 		
 		System.out.println("Token verified: " + verified);
 		
-		return verified;
-	}
-
-	private boolean verifyCounter(int numcount)
-	{
-		boolean verified = false;
-		usercounter++;
-		
-		if(numcount == usercounter)
-		{	
-			verified = true;
-		}
-
 		return verified;
 	}
 }

@@ -320,9 +320,11 @@ public class GroupServerClientFrame extends JInternalFrame {
 			tempServer = fileserverField.getText();
 			try {
 				tempPort = Integer.parseInt(fileserverportField.getText());
-				parentApp.controller.initFileClient(tempServer, tempPort);
-				if (parentApp.controller.connectFileClient() == true) {
-					JScrollPane scrollPane = new JScrollPane(new JLabel(parentApp.controller.getFingerprint()));  
+				parentApp.fClient = new FileClient(tempServer, tempPort);
+				parentApp.fClient.FSIP = tempServer;
+				parentApp.myToken = parentApp.gClient.updateToken(parentApp.myToken, tempServer);
+				if(parentApp.fClient.connect() == true) {
+					JScrollPane scrollPane = new JScrollPane(new JLabel(parentApp.fClient.getFingerprint()));  
 			        scrollPane.setPreferredSize(new Dimension(300,300)); 
 			        Object message = scrollPane; 
 			        
@@ -332,7 +334,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 						    JOptionPane.YES_NO_OPTION);
 					
 					if (choice == JOptionPane.YES_OPTION) {
-						parentApp.controller.setupFileClientChannel();
+						parentApp.fClient.setupChannel();
 						parentApp.initializeFileClientWindow();
 					}
 					else {
@@ -354,10 +356,11 @@ public class GroupServerClientFrame extends JInternalFrame {
 	
 	private void getTokenAction() {
 		System.out.println("username: " + usernameField.getText());
-		
-		if (parentApp.controller.getToken(usernameField.getText(), passwordField.getText())) {
+		parentApp.myToken = parentApp.gClient.getToken(usernameField.getText(), passwordField.getText());
+		if (parentApp.myToken != null) {
 			groupActionsPanel.setVisible(true);
 			connectFileServerPanel.setVisible(true);
+			System.out.println("Token received!\n" + parentApp.myToken.toString());
 		}
 		else {
 			JOptionPane.showMessageDialog(this, "Invalid username/password!");
@@ -365,8 +368,15 @@ public class GroupServerClientFrame extends JInternalFrame {
 	}
 	
 	private void disconnectAction() {
-		parentApp.controller.disconnectGroupClient(); // Also disconnects from any file server.
+		parentApp.gClient.secureDisconnect();
+		parentApp.gClient = null;
 		
+		if (parentApp.fClient != null) {
+			if (parentApp.fClient.isConnected()) {
+				parentApp.fClient.secureDisconnect();
+				parentApp.gClient = null;
+			}
+		}
 		groupActionsPanel.setVisible(false);
 		connectFileServerPanel.setVisible(false);
 		parentApp.fileClientFrame.setVisible(false);
@@ -382,7 +392,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a user to create one!");
 		}
 		else {
-			if ((parentApp.controller.createUser(userField.getText(), pwField.getText())) == true) {
+			if ((parentApp.gClient.createUser(userField.getText(), pwField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "Created user successfully!");
 			}
 			else {
@@ -396,7 +406,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a user to delete one!");
 		}
 		else {
-			if ((parentApp.controller.deleteUser(userField.getText())) == true) {
+			if ((parentApp.gClient.deleteUser(userField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "Deleted user successfully!");
 			}
 			else {
@@ -410,7 +420,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a group to create one!");
 		}
 		else {
-			if ((parentApp.controller.createGroup(groupField.getText())) == true) {
+			if ((parentApp.gClient.createGroup(groupField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "Created group successfully!");
 			}
 			else {
@@ -424,7 +434,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a group to delete one!");
 		}
 		else {
-			if ((parentApp.controller.deleteGroup(groupField.getText())) == true) {
+			if ((parentApp.gClient.deleteGroup(groupField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "Deleted group successfully!");
 			}
 			else {
@@ -438,7 +448,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a user AND group!");
 		}
 		else {
-			if ((parentApp.controller.addUserToGroup(userField.getText(), groupField.getText())) == true) {
+			if ((parentApp.gClient.addUserToGroup(userField.getText(), groupField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "User added to group successfully!");
 			}
 			else {
@@ -452,7 +462,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a user AND group!");
 		}
 		else {
-			if ((parentApp.controller.deleteUserFromGroup(userField.getText(), groupField.getText())) == true) {
+			if ((parentApp.gClient.deleteUserFromGroup(userField.getText(), groupField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "User deleted from group successfully!");
 			}
 			else {
@@ -466,7 +476,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			JOptionPane.showMessageDialog(this, "Enter a user AND group!");
 		}
 		else {
-			if ((parentApp.controller.addUserToGroup(userField.getText(), groupField.getText())) == true) {
+			if ((parentApp.gClient.addUserToGroup(userField.getText(), groupField.getText(), parentApp.myToken)) == true) {
 				JOptionPane.showMessageDialog(this, "Owner added to group successfully!");
 			}
 			else {
@@ -485,7 +495,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 		}
 		else
 		{
-			tempList = parentApp.controller.listMembers(groupField.getText());
+			tempList = parentApp.gClient.listMembers(groupField.getText(), parentApp.myToken);
 			if (tempList != null) {
 				for (int i = 0; i < tempList.size(); i++) {
 					listMember = tempList.get(i);

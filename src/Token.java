@@ -8,7 +8,7 @@ public class Token implements UserToken, Serializable {
 	private String issuer, subject;
 	private HashSet<String> groups;
 	private byte[] signature;
-	private String IPAddress;
+	private String IP;
 
 	public Token(String issuer_, String subject_, HashSet<String> groups_){
 		issuer = issuer_;
@@ -21,19 +21,26 @@ public class Token implements UserToken, Serializable {
 		signature = Arrays.copyOf(signature_, signature_.length);
 	}
 	
-	public Token(String issuer_, String subject_, HashSet<String> groups_, String IP) {
+	public Token(String issuer_, String subject_, HashSet<String> groups_, String IP_) {
 		this(issuer_, subject_, groups_);
-		IPAddress = IP;
+		IP = IP_;
 	}
-	
-	public Token(String issuer_, String subject_, HashSet<String> groups_, byte[] signature_, String IP) {
+	public Token(String issuer_, String subject_, HashSet<String> groups_, byte[] signature_, String IP_) {
 		this(issuer_, subject_, groups_);
-		IPAddress = IP;
 		signature = Arrays.copyOf(signature_, signature_.length);
+		IP = IP_;
 	}
 
 	public String getIssuer() {
 		return issuer;
+	}
+	
+	public String getIP() {
+		return IP;
+	}
+	
+	public void setIP(String IP_) {
+		IP = IP_;
 	}
 
 	public void setSignature(byte[] signature_) {

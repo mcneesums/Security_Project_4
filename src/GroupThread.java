@@ -73,13 +73,13 @@ public class GroupThread extends Thread
 							sessionKey = (Key)objectList.get(0);
 							int nonce = (Integer)objectList.get(1);
 							nonce = nonce - 1; // nonce - 1 to return
-							response = makeSecureEnvelope("OK");
-
+							
 							// Will create a name number for the counter to start at
 							SecureRandom rand = new SecureRandom();
-							int usercounter = rand.nextInt();
+							usercounter = rand.nextInt();
 							
-							response.addObject(usercounter);
+							response = makeSecureEnvelope("OK");
+
 							response.addObject(nonce);
 							output.writeObject(response);
 							// Reset the input stream for a secure connection
@@ -112,8 +112,14 @@ public class GroupThread extends Thread
 								secureResponse = makeSecureEnvelope("FAIL");
 								output.writeObject(secureResponse);
 							}
-							username = (String)list.get(3);
-							String password = (String)list.get(4);
+							int countertemp = (Integer)list.get(1);
+							if(!verifyCounter(countertemp))
+							{
+								System.out.println("Counter not correct. Not a safe message. Closing network!");
+								System.exit(0);
+							}
+							username = (String)list.get(2);
+							String password = (String)list.get(3);
 							// If the username is null, send a FAIL message
 							if ((username == null) || (!my_gs.userList.checkUser(username))) {
 								//System.out.println("username: " + username);
@@ -147,7 +153,14 @@ public class GroupThread extends Thread
 							
 							if(list.get(2) != null && list.get(3) != null && list.get(4) != null)
 							{
-								    String username = (String)list.get(2); //Extract the username
+									int countertemp = (Integer)list.get(1);
+									if(!verifyCounter(countertemp))
+									{
+										System.out.println("Counter not correct. Not a safe message. Closing network!");
+										System.exit(0);
+									}
+								
+									String username = (String)list.get(2); //Extract the username
 								    String password = (String)list.get(3);
 								    Token yourToken = (Token)list.get(4); //Extract the token
 
@@ -183,6 +196,13 @@ public class GroupThread extends Thread
 							{
 								if(list.get(3) != null)
 								{
+									int countertemp = (Integer)list.get(1);
+									if(!verifyCounter(countertemp))
+									{
+										System.out.println("Counter not correct. Not a safe message. Closing network!");
+										System.exit(0);
+									}
+									
 									String username = (String)list.get(2); //Extract the username
 									Token yourToken = (Token)list.get(3); //Extract the token
 									
@@ -216,6 +236,13 @@ public class GroupThread extends Thread
 							output.writeObject(secureResponse);
 							return;
 						}
+						int countertemp = (Integer)list.get(1);
+						if(!verifyCounter(countertemp))
+						{
+							System.out.println("Counter not correct. Not a safe message. Closing network!");
+							System.exit(0);
+						}
+						
 						String groupname = (String)list.get(2);
 						Token yourToken = (Token)list.get(3); //Extract the token
 						if (!verifyToken(yourToken)) {
@@ -248,6 +275,13 @@ public class GroupThread extends Thread
 							output.writeObject(secureResponse);
 						}
 						else {
+							int countertemp = (Integer)list.get(1);
+							if(!verifyCounter(countertemp))
+							{
+								System.out.println("Counter not correct. Not a safe message. Closing network!");
+								System.exit(0);
+							}
+							
 							String groupname = (String)list.get(2);
 							Token yourToken = (Token)list.get(3); //Extract the token
 
@@ -276,7 +310,13 @@ public class GroupThread extends Thread
 							output.writeObject(secureResponse);
 							return;
 						}
-
+						int countertemp = (Integer)list.get(1);
+						if(!verifyCounter(countertemp))
+						{
+							System.out.println("Counter not correct. Not a safe message. Closing network!");
+							System.exit(0);
+						}
+						
 						String groupname = (String)list.get(2);
 						Token yourToken = (Token)list.get(3); //Extract the token
 						String username = yourToken.getSubject();
@@ -314,7 +354,13 @@ public class GroupThread extends Thread
 							output.writeObject(secureResponse);
 							return;
 						}
-
+						int countertemp = (Integer)list.get(1);
+						if(!verifyCounter(countertemp))
+						{
+							System.out.println("Counter not correct. Not a safe message. Closing network!");
+							System.exit(0);
+						}
+						
 						String userToAdd = (String)list.get(2);
 						String groupname = (String)list.get(3);
 						Token yourToken = (Token)list.get(4); //Extract the token
@@ -341,6 +387,12 @@ public class GroupThread extends Thread
 							secureResponse = makeSecureEnvelope("FAIL");
 							output.writeObject(secureResponse);
 							return;
+						}
+						int countertemp = (Integer)list.get(1);
+						if(!verifyCounter(countertemp))
+						{
+							System.out.println("Counter not correct. Not a safe message. Closing network!");
+							System.exit(0);
 						}
 
 						String userToAdd = (String)list.get(2);
@@ -375,7 +427,13 @@ public class GroupThread extends Thread
 							output.writeObject(secureResponse);
 							return;
 						}
-
+						int countertemp = (Integer)list.get(1);
+						if(!verifyCounter(countertemp))
+						{
+							System.out.println("Counter not correct. Not a safe message. Closing network!");
+							System.exit(0);
+						}
+						
 						String userToRemove = (String) list.get(2);
 						String groupname = (String)list.get(3);
 						Token yourToken = (Token)list.get(4); //Extract the token
@@ -770,11 +828,11 @@ public class GroupThread extends Thread
 	private boolean verifyCounter(int numcount)
 	{
 		boolean verified = false;
-
+		usercounter++;
+		
 		if(numcount == usercounter)
 		{	
 			verified = true;
-			usercounter++;
 		}
 
 		return verified;

@@ -523,5 +523,18 @@ public class FileThread extends Thread
 		
 		return verified;
 	}
+	
+	private boolean verifyCounter(int numcount)
+	{
+		boolean verified = false;
+		usercounter++;
+		
+		if(numcount == usercounter)
+		{	
+			verified = true;
+		}
+
+		return verified;
+	}
 
 }

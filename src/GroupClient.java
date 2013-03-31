@@ -1,4 +1,4 @@
-/* Implements the GroupClient Interface */
+ /* Implements the GroupClient Interface */
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -143,10 +143,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				ArrayList<Object> temp = null;
 				temp = response.getObjContents();
 				
-				if(temp.size() == 2)
+				if(temp.size() == 3)
 				{
-					usercounter = (Integer)temp.get(0);
-					int returnNonce = (Integer)temp.get(1);
+					usercounter = (Integer)temp.get(1);
+					int returnNonce = (Integer)temp.get(2);
 					return returnNonce;
 				}
 			}
@@ -192,6 +192,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 			{	
 				if(objectList.size() == 3)
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					token = (Token)objectList.get(2);
 					return token;
 				}
@@ -227,6 +233,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -258,6 +270,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -289,6 +307,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -320,6 +344,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)list.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -352,6 +382,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return (ArrayList<String>)(getDecryptedPayload(secureResponse).get(2));
 				}
 				
@@ -384,6 +420,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -416,6 +458,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				
@@ -448,6 +496,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 				//If server indicates success, return true
 				if(responsemsg.equals("OK"))
 				{
+					int countertemp = (Integer)objectList.get(1);
+					if(!verifyCounter(countertemp))
+					{
+						System.out.println("Counter not correct. Not a safe message. Closing network!");
+						System.exit(0);
+					}
 					return true;
 				}
 				

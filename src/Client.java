@@ -228,14 +228,14 @@ public abstract class Client {
 		return list;
 	}
 	
-	private boolean verifyCounter(int numcount)
+	protected boolean verifyCounter(int numcount)
 	{
 		boolean verified = false;
-
+		usercounter++;
+		
 		if(numcount == usercounter)
 		{	
 			verified = true;
-			usercounter++;
 		}
 
 		return verified;

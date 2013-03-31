@@ -196,14 +196,14 @@ public class ClientController {
 	 * @return True if the user was successfully deleted from the group, false if they were not for some reason.
 	 */
 	public boolean deleteUserFromGroup(String username, String groupname) {
-		boolean userAdded = false;
+		boolean userDelete = false;
 		
 		// First verify no null values were passed
 		if ((username != null) && (groupname != null)) {
-			userAdded = gClient.addUserToGroup(username, groupname, token);
+			userDelete = gClient.deleteUserFromGroup(username, groupname, token);
 		}
 		
-		return userAdded;
+		return userDelete;
 	}
 	
 	/**

@@ -90,14 +90,14 @@ public class GroupClient extends Client implements GroupClientInterface {
 		ArrayList<Object> payloadList = new ArrayList<Object>();
 		payloadList.add(AES128key);
 		payloadList.add(nonce);
-		
+		sessionKey = AES128key;
+
 		// Initialize the secure session
 		int nonceReturn = beginSession(payloadList);
 		
 		// If the group server returns the nonce - 1, then we know it is actually the group server.
 		// We also know to begin using the session key
 		if (nonceReturn == (nonce - 1)) {
-			sessionKey = AES128key;
 			System.out.println("Successfully created a secure session!");
 			return true;
 		}
@@ -143,10 +143,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				ArrayList<Object> temp = null;
 				temp = response.getObjContents();
 				
-				if(temp.size() == 3)
+				if(temp.size() == 1)
 				{
-					usercounter = (Integer)temp.get(1);
-					int returnNonce = (Integer)temp.get(2);
+					usercounter = (Integer)objectList.get(1);
+					int returnNonce = (Integer)temp.get(0);
 					return returnNonce;
 				}
 			}
@@ -187,17 +187,12 @@ public class GroupClient extends Client implements GroupClientInterface {
 			
 			ArrayList<Object> objectList = getDecryptedPayload(response);
 			String responsemsg = (String) objectList.get(0);
+			int countertemp = (Integer)objectList.get(1);
 			//Successful response
-			if(responsemsg.equals("OK"))
+			if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 			{	
 				if(objectList.size() == 3)
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					token = (Token)objectList.get(2);
 					return token;
 				}
@@ -229,16 +224,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -266,16 +255,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -303,16 +286,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -340,16 +317,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)list.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -378,16 +349,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return (ArrayList<String>)(getDecryptedPayload(secureResponse).get(2));
 				}
 				
@@ -416,16 +381,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -454,16 +413,10 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
-				
+				int countertemp = (Integer)objectList.get(1);
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
 				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
 					return true;
 				}
 				
@@ -492,16 +445,11 @@ public class GroupClient extends Client implements GroupClientInterface {
 				secureResponse = (SecureEnvelope)input.readObject();
 				ArrayList<Object> objectList = getDecryptedPayload(secureResponse);
 				String responsemsg = (String)objectList.get(0);
+				int countertemp = (Integer)objectList.get(1);
 				
 				//If server indicates success, return true
-				if(responsemsg.equals("OK"))
-				{
-					int countertemp = (Integer)objectList.get(1);
-					if(!verifyCounter(countertemp))
-					{
-						System.out.println("Counter not correct. Not a safe message. Closing network!");
-						System.exit(0);
-					}
+				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
+				{				
 					return true;
 				}
 				

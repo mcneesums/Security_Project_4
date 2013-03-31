@@ -125,8 +125,10 @@ public abstract class Client {
 	
 	// Set the ivSpec in the envelope
 	envelope.setIV(ivSpec.getIV());
+	System.out.print(envelope.getIV());
 	
 	usercounter++;
+	System.out.println("Sent over C-G: " + usercounter);
 
 	list.add(0, usercounter);
 	list.add(0, msg);
@@ -170,6 +172,7 @@ public abstract class Client {
 	
 	protected ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
 		// Using this wrapper method in case the envelope changes at all :)
+		System.out.println("check evelope" + envelope.getIV());
 		return byteArrayToList(decryptPayload(envelope.getPayload(), new IvParameterSpec(envelope.getIV())));
 	}
 	
@@ -232,10 +235,16 @@ public abstract class Client {
 	{
 		boolean verified = false;
 		usercounter++;
+		System.out.println("numcount: " + numcount + " usercount: " + usercounter);
 		
 		if(numcount == usercounter)
 		{	
-			verified = true;
+			verified = true;	
+		}
+		else
+		{
+			System.out.println("Counter not correct. Not a safe message. Closing network!");
+			System.exit(0);
 		}
 
 		return verified;

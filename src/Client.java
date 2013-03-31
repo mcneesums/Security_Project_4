@@ -25,6 +25,7 @@ public abstract class Client {
 	protected ClientController controller;
 	protected Key sessionKey;
 	protected PublicKey publicKey;
+	protected int usercounter = 0;
 
 	public boolean connect(final String server, final int port) {
 		System.out.println("attempting to connect");
@@ -124,6 +125,8 @@ public abstract class Client {
 	
 	// Set the ivSpec in the envelope
 	envelope.setIV(ivSpec.getIV());
+	
+	usercounter++;
 
 	list.add(0, usercounter);
 	list.add(0, msg);
@@ -225,4 +228,16 @@ public abstract class Client {
 		return list;
 	}
 	
+	private boolean verifyCounter(int numcount)
+	{
+		boolean verified = false;
+
+		if(numcount == usercounter)
+		{	
+			verified = true;
+			usercounter++;
+		}
+
+		return verified;
+	}
 }

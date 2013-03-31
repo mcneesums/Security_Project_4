@@ -24,7 +24,8 @@ public class FileThread extends Thread
 	private final Socket socket;
 	private FileServer my_fs;
 	private Key sessionKey;
-
+	private int usercounter;
+	
 	public FileThread(Socket _socket, FileServer _fs)
 	{
 		socket = _socket;
@@ -361,16 +362,26 @@ public class FileThread extends Thread
 	 * These methods will abstract the whole secure session process.
 	 * 
 	 */
+	private  SecureEnvelope makeSecureEnvelope(String msg)
+	{
+		ArrayList<Object> list = new ArrayList<Object>();
+		return makeSecureEnvelope(msg, list);
+	}
 	
 	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
-		SecureEnvelope envelope = new SecureEnvelope(msg);
+		SecureEnvelope envelope = new SecureEnvelope("");
 		
 		// Create new ivSpec
 		IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
 		
 		// Set the ivSpec in the envelope
 		envelope.setIV(ivSpec.getIV());
+		
+		usercounter++;
+		
+		list.add(0, usercounter);
+		list.add(0, msg);
 		
 		// Set the payload using the encrypted ArrayList
 		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));

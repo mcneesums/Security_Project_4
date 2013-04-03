@@ -8,9 +8,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Arrays;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.Mac;
 
 public abstract class Client {
 
@@ -24,8 +26,9 @@ public abstract class Client {
 	protected int myPort;
 	protected ClientController controller;
 	protected Key sessionKey;
+	protected Key hashKey;
 	protected PublicKey publicKey;
-	protected int usercounter = 0;
+	protected int usercounter;
 
 	public boolean connect(final String server, final int port) {
 		System.out.println("attempting to connect");
@@ -101,13 +104,13 @@ public abstract class Client {
 	 * These methods will abstract the whole secure session process.
 	 * 
 	 */
-	private  SecureEnvelope makeSecureEnvelope(String msg)
+	protected  SecureEnvelope makeSecureEnvelope(String msg)
 	{
 		ArrayList<Object> list = new ArrayList<Object>();
 		return makeSecureEnvelope(msg, list);
 	}
 	 
-	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
+	protected SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
 	SecureEnvelope envelope;
 
@@ -249,4 +252,44 @@ public abstract class Client {
 
 		return verified;
 	}
+	
+	protected byte[] createHMAC(byte[] message)
+	{
+		if(message == null)
+		{
+			return null;
+		}
+		
+		try
+		{
+			Mac mac = Mac.getInstance(hashKey.getAlgorithm());
+			mac.init(hashKey);
+			byte[] hmacValue = mac.doFinal(message);
+			return hmacValue;
+		 } 
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+			    
+		return null;  
+	}
+	
+	protected boolean vierfyHMAC(byte[] hashvalue, byte[] message, Key key)
+	{
+		try 
+		{
+			Mac mac = Mac.getInstance(key.getAlgorithm());
+			mac.init(key);
+			byte[] hashVal = mac.doFinal(message);
+			return Arrays.equals(hashVal, hashvalue);
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+		}
+		return false;
+	}
+	
+	
 }

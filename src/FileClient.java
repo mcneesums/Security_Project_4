@@ -404,7 +404,13 @@ public class FileClient extends Client implements FileClientInterface {
 	 * 
 	 */
 	 
-	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
+	protected  SecureEnvelope makeSecureEnvelope(String msg)
+	{
+		ArrayList<Object> list = new ArrayList<Object>();
+		return makeSecureEnvelope(msg, list);
+	}
+	
+	protected SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
 	SecureEnvelope envelope = new SecureEnvelope(msg);
 	

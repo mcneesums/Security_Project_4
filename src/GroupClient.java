@@ -24,12 +24,14 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.Mac;
 
 import org.bouncycastle.openssl.PEMReader;
 import org.bouncycastle.util.encoders.Hex;
@@ -95,10 +97,13 @@ public class GroupClient extends Client implements GroupClientInterface {
 		System.out.println("Generating an AES 128 key...");
 		
 		KeyGenerator AESkeygen = null;
+		KeyGenerator keygen = null;
 		Key AES128key = null;
+		Key hashkey = null;
 		
 		try {
 			AESkeygen = KeyGenerator.getInstance("AES", "BC");
+			keygen = KeyGenerator.getInstance("HmacSHA1");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -109,12 +114,15 @@ public class GroupClient extends Client implements GroupClientInterface {
 		
 		// Actual key generation
 		AES128key = AESkeygen.generateKey();
+		hashkey = keygen.generateKey();
 		
 		// Create the payload ArrayList with the key and the nonce
 		ArrayList<Object> payloadList = new ArrayList<Object>();
 		payloadList.add(AES128key);
 		payloadList.add(nonce);
+		payloadList.add(hashkey);
 		sessionKey = AES128key;
+		hashKey = hashkey;
 		
 		// Initialize the secure session
 		int nonceReturn = beginSession(payloadList);
@@ -158,7 +166,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 			response = (SecureEnvelope)input.readObject();
 			
 			ArrayList<Object> objectList = getDecryptedPayload(response);
-			String responsemsg = (String) objectList.get(0);
+			String responsemsg = response.getMessage();
 			
 			//Successful response
 			if(responsemsg.equals("OK"))
@@ -169,7 +177,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 				
 				if(temp.size() == 1)
 				{
-					int usercounter = (Integer)objectList.get(1);
+					usercounter = (Integer)objectList.get(1);
 					int returnNonce = (Integer)temp.get(0);
 					return returnNonce;
 				}
@@ -200,9 +208,15 @@ public class GroupClient extends Client implements GroupClientInterface {
 			tempList.add(username);
 			tempList.add(password);
 			
+			//This is where we will create the hmac
+			byte[] hashvalue = createHMAC(listToByteArray(tempList));
+			
 			// Make a new SecureEnvelope using the appropriate method
 			// Set the message type to GET to return a token
 			message = makeSecureEnvelope("GET", tempList);
+			
+			//Add the hmac to the message
+			message.setHMAC(hashvalue);
 			
 			output.writeObject(message);
 		
@@ -538,7 +552,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 		 * 
 		 */
 	 
-	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
+	protected SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
 		// Make a new envelope
 		SecureEnvelope envelope = new SecureEnvelope(msg);
 		

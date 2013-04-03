@@ -13,10 +13,13 @@ import java.security.SecureRandom;
 import java.security.Security;
 import java.security.Signature;
 import java.util.*;
+import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
+
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 
@@ -27,6 +30,7 @@ public class GroupThread extends Thread
 	private final Socket socket;
 	private GroupServer my_gs;
 	private Key sessionKey;
+	private Key hashKey;
 	private int usercounter;
 	
 	public GroupThread(Socket _socket, GroupServer _gs)
@@ -68,10 +72,11 @@ public class GroupThread extends Thread
 						// Get the list from the SecureEnvelope, false because it's NOT using the session key
 						ArrayList<Object> objectList = getDecryptedPayload(secureMessage, false);
 						// Make sure it doesn't return null and it has two elements in the list
-						if (!(objectList == null) && (objectList.size() == 2)) {
+						if (!(objectList == null) && (objectList.size() == 3)) {
 							// Grab the session 
 							sessionKey = (Key)objectList.get(0);
 							int nonce = (Integer)objectList.get(1);
+							hashKey = (Key)objectList.get(2);
 							nonce = nonce - 1; // nonce - 1 to return
 							
 							// Will create a name number for the counter to start at
@@ -107,8 +112,12 @@ public class GroupThread extends Thread
 					else {
 						// Get the decrypted payload, TRUE because it's using the session key
 						ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
+						
+						byte[] hashValue = secureMessage.getHMAC();
+						byte[] convertMess = listToByteArray(list);
+						
 						// Get the username from the object list
-							if(list.size() < 4){
+							if(list.size() < 4 || !verifyHMAC(hashValue, convertMess, hashKey)){
 								secureResponse = makeSecureEnvelope("FAIL");
 							output.writeObject(secureResponse);
 						}
@@ -418,6 +427,7 @@ public class GroupThread extends Thread
 				{
 					ArrayList<Object> list = getDecryptedPayload(secureMessage, true);
 					
+						System.out.println("list size: " + list.size());
 						if(list.size() < 5){
 							secureResponse = makeSecureEnvelope("FAIL");
 						output.writeObject(secureResponse);
@@ -876,5 +886,43 @@ public class GroupThread extends Thread
 		}
 		
 		return verified;
+	}
+	
+	protected byte[] createHMAC(byte[] message, Key key)
+	{
+		if(message == null || key == null)
+		{
+			return null;
+		}
+		
+		try
+		{
+			Mac mac = Mac.getInstance(key.getAlgorithm());
+			mac.init(key);
+			byte[] hmacValue = mac.doFinal(message);
+			return hmacValue;
+		 } 
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+			    
+		return null;  
+	}
+	
+	protected boolean verifyHMAC(byte[] hashvalue, byte[] message, Key key)
+	{
+		try 
+		{
+			Mac mac = Mac.getInstance(key.getAlgorithm());
+			mac.init(key);
+			byte[] hashVal = mac.doFinal(message);
+			return Arrays.equals(hashVal, hashvalue);
+		} 
+		catch (Exception e) 
+		{
+			e.printStackTrace();
+		}
+		return false;
 	}
 }

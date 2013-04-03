@@ -141,6 +141,7 @@ public class GroupServer extends Server {
 			{
 				outStream = new ObjectOutputStream(new FileOutputStream("GroupList.bin"));
 				outStream.writeObject(groupList);
+				
 				outStream.close();
 			}
 			catch(Exception e1)

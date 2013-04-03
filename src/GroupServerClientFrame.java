@@ -320,7 +320,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 			tempServer = fileserverField.getText();
 			try {
 				tempPort = Integer.parseInt(fileserverportField.getText());
-				parentApp.fClient = new FileClient(tempServer, tempPort);
+				parentApp.fClient = new FileClient(tempServer, tempPort, null);
 				parentApp.fClient.FSIP = tempServer;
 				parentApp.myToken = parentApp.gClient.updateToken(parentApp.myToken, tempServer);
 				if(parentApp.fClient.connect() == true) {

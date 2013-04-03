@@ -29,8 +29,8 @@ public class FileClient extends Client implements FileClientInterface {
 	private String fingerprint;
 	public String FSIP;
 	
-	public FileClient(String inputServer, int inputPort) {
-		super(inputServer, inputPort);
+	public FileClient(String inputServer, int inputPort, ClientController cc) {
+		super(inputServer, inputPort, cc);
 		// TODO Auto-generated constructor stub
 	}
 	
@@ -472,7 +472,7 @@ public class FileClient extends Client implements FileClientInterface {
 		return plainText;
 	}
 	
-	private byte[] listToByteArray(ArrayList<Object> list) {
+	protected byte[] listToByteArray(ArrayList<Object> list) {
 		byte[] returnBytes = null;
 		
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();

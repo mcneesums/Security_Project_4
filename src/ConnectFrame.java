@@ -84,7 +84,7 @@ public class ConnectFrame extends JInternalFrame {
 			tempServer = serverField.getText();
 			try {
 				tempPort = Integer.parseInt(portField.getText());
-				parentApp.gClient = new GroupClient(tempServer, tempPort);
+				parentApp.gClient = new GroupClient(tempServer, tempPort, null);
 				if(parentApp.gClient.connect() == true) {
 					initializeGroupClientWindow();
 				}

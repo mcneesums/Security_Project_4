@@ -320,13 +320,13 @@ public class GroupServerClientFrame extends JInternalFrame {
 			tempServer = fileserverField.getText();
 			try {
 				tempPort = Integer.parseInt(fileserverportField.getText());
-				parentApp.fClient = new FileClient(tempServer, tempPort, null);
+				parentApp.fClient = new FileClient(tempServer, tempPort, parentApp.controller);
 				parentApp.fClient.FSIP = tempServer;
 				parentApp.myToken = parentApp.gClient.updateToken(parentApp.myToken, tempServer);
 				if(parentApp.fClient.connect() == true) {
-					JScrollPane scrollPane = new JScrollPane(new JLabel(parentApp.fClient.getFingerprint()));  
-			        scrollPane.setPreferredSize(new Dimension(300,300)); 
-			        Object message = scrollPane; 
+				JScrollPane scrollPane = new JScrollPane(new JLabel(parentApp.fClient.getFingerprint()));  
+			    scrollPane.setPreferredSize(new Dimension(300,300)); 
+			    Object message = scrollPane; 
 			        
 					int choice = JOptionPane.showConfirmDialog(
 						    this, message,
@@ -356,6 +356,7 @@ public class GroupServerClientFrame extends JInternalFrame {
 	
 	private void getTokenAction() {
 		System.out.println("username: " + usernameField.getText());
+		
 		parentApp.myToken = parentApp.gClient.getToken(usernameField.getText(), passwordField.getText());
 		if (parentApp.myToken != null) {
 			groupActionsPanel.setVisible(true);
@@ -370,11 +371,11 @@ public class GroupServerClientFrame extends JInternalFrame {
 	private void disconnectAction() {
 		parentApp.gClient.secureDisconnect();
 		parentApp.gClient = null;
-		
+		     
 		if (parentApp.fClient != null) {
-			if (parentApp.fClient.isConnected()) {
-				parentApp.fClient.secureDisconnect();
-				parentApp.gClient = null;
+		if (parentApp.fClient.isConnected()) {
+		parentApp.fClient.secureDisconnect();
+		parentApp.gClient = null;
 			}
 		}
 		groupActionsPanel.setVisible(false);

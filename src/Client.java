@@ -143,7 +143,7 @@ public abstract class Client {
 		
 	}
 	
-	private byte[] encryptPayload(byte[] plainText, boolean useSessionKey, IvParameterSpec ivSpec) {
+	protected byte[] encryptPayload(byte[] plainText, boolean useSessionKey, IvParameterSpec ivSpec) {
 		byte[] cipherText = null;
 		Cipher inCipher;
 		
@@ -173,7 +173,7 @@ public abstract class Client {
 		return cipherText;
 	}
 	
-	private ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
+	protected ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
 		// Using this wrapper method in case the envelope changes at all :)
 		System.out.println("check evelope" + envelope.getIV());
 		return byteArrayToList(decryptPayload(envelope.getPayload(), new IvParameterSpec(envelope.getIV())));
@@ -195,7 +195,7 @@ public abstract class Client {
 		return plainText;
 	}
 	
-	private byte[] listToByteArray(ArrayList<Object> list) {
+	protected byte[] listToByteArray(ArrayList<Object> list) {
 		byte[] returnBytes = null;
 		
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();

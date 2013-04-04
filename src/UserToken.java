@@ -18,6 +18,10 @@ public interface UserToken
 	 */
 	public void setSignature(byte[] signature_);
 	
+	public String getIP();
+
+	public void setIP(String IP_);
+	
 	/**
 	 * 
 	 * @return The signature as a byte array

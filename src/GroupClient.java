@@ -1,9 +1,10 @@
-/* Implements the GroupClient Interface */
+ /* Implements the GroupClient Interface */
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.security.Key;
+import java.security.InvalidKeyException;
+ import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
@@ -24,26 +25,25 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
-
+ 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
-
+ 
 import org.bouncycastle.openssl.PEMReader;
 import org.bouncycastle.util.encoders.Hex;
 
 public class GroupClient extends Client implements GroupClientInterface {
 	
-	private X509Certificate cert;
-	private PublicKey publicKey;
-	private Key sessionKey;
+	protected X509Certificate cert;
+	//protected PublicKey publicKey;
+	//private Key sessionKey;
 	public String FSIP;
-	//IvParameterSpec currentIV;
 	
-	public GroupClient(String inputServer, int inputPort, ClientController cc) {
-		super(inputServer, inputPort, cc);
+	public GroupClient(String inputServer, int inputPort, ClientController _cc) {
+		super(inputServer, inputPort, _cc);
 		publicKey = null;
 		cert = null;
 		
@@ -115,7 +115,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 		payloadList.add(AES128key);
 		payloadList.add(nonce);
 		sessionKey = AES128key;
-		
+
 		// Initialize the secure session
 		int nonceReturn = beginSession(payloadList);
 		
@@ -169,7 +169,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 				
 				if(temp.size() == 1)
 				{
-					int usercounter = (Integer)objectList.get(1);
+					usercounter = (Integer)objectList.get(1);
 					int returnNonce = (Integer)temp.get(0);
 					return returnNonce;
 				}
@@ -221,50 +221,6 @@ public class GroupClient extends Client implements GroupClientInterface {
 					return token;
 				}
 			}
-		}catch(Exception e)
-		{
-		}
-		return null;
-	}
-		
-	
-	public UserToken updateToken(UserToken old, String IP)
-	 {
-		try
-		{
-			UserToken token = null;
-			//Envelope message = null, response = null;
-		 	SecureEnvelope message, response = null;
-			
-			// Make a temporary ArrayList which which be converted to a byte array
-			ArrayList<Object> tempList = new ArrayList<Object>();
-			
-			// Add the username
-			tempList.add(old);
-			tempList.add(IP);
-			
-			// Make a new SecureEnvelope using the appropriate method
-			// Set the message type to GET to return a token
-			message = makeSecureEnvelope("UTOKEN", tempList);
-			
-			output.writeObject(message);
-		
-			//Get the response from the server
-			response = (SecureEnvelope)input.readObject();
-			
-			//Successful response
-			if(response.getMessage().equals("UPDATED"))
-			{
-				//If there is a token in the Envelope, return it 
-				ArrayList<Object> temp = null;
-				temp = getDecryptedPayload(response);
-				
-				if(temp.size() == 1)
-				{
-					token = (UserToken)temp.get(0);
-					return token;
-				}
-			}
 			
 			return null;
 		}
@@ -275,6 +231,55 @@ public class GroupClient extends Client implements GroupClientInterface {
 			return null;
 		}
 		
+	 }
+	
+	public UserToken updateToken(UserToken old, String IP)
+	 {
+		try
+		{
+			UserToken token = null;
+			//Envelope message = null, response = null;
+		 	SecureEnvelope message, response = null;
+
+			// Make a temporary ArrayList which which be converted to a byte array
+			ArrayList<Object> tempList = new ArrayList<Object>();
+
+			// Add the username
+			tempList.add(old);
+			tempList.add(IP);
+
+			// Make a new SecureEnvelope using the appropriate method
+			// Set the message type to GET to return a token
+			message = makeSecureEnvelope("UTOKEN", tempList);
+
+			output.writeObject(message);
+
+			//Get the response from the server
+			response = (SecureEnvelope)input.readObject();
+
+			//Successful response
+			if(response.getMessage().equals("UPDATED"))
+			{
+				//If there is a token in the Envelope, return it 
+				ArrayList<Object> temp = null;
+				temp = getDecryptedPayload(response);
+
+				if(temp.size() == 1)
+				{
+					token = (UserToken)temp.get(0);
+					return token;
+				}
+			}
+
+			return null;
+		}
+		catch(Exception e)
+		{
+			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace(System.err);
+			return null;
+		}
+
 	 }
 	 
     public boolean createUser(String username, String password, UserToken token)
@@ -517,7 +522,7 @@ public class GroupClient extends Client implements GroupClientInterface {
 				
 				//If server indicates success, return true
 				if(verifyCounter(countertemp) && responsemsg.equals("OK"))
-				{
+				{				
 					return true;
 				}
 				
@@ -530,118 +535,4 @@ public class GroupClient extends Client implements GroupClientInterface {
 				return false;
 			}
 	 }
-	 
-	 
-	 /* Crypto Related Methods
-		 * 
-		 * These methods will abstract the whole secure session process.
-		 * 
-		 */
-	 
-	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
-		// Make a new envelope
-		SecureEnvelope envelope = new SecureEnvelope(msg);
-		
-		// Create new ivSpec
-		IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
-		
-		// Set the ivSpec in the envelope
-		envelope.setIV(ivSpec.getIV());
-		
-		// Set the payload using the encrypted ArrayList
-		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));
-		
-		return envelope;
-		
-	}
-	
-	private byte[] encryptPayload(byte[] plainText, boolean useSessionKey, IvParameterSpec ivSpec) {
-		byte[] cipherText = null;
-		Cipher inCipher;
-		
-		if (useSessionKey) {
-			// TODO
-			try {
-				inCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-				inCipher.init(Cipher.ENCRYPT_MODE, sessionKey, ivSpec);
-				cipherText = inCipher.doFinal(plainText);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		else { // Use public key RSA
-			try {
-				inCipher = Cipher.getInstance("RSA", "BC");
-				inCipher.init(Cipher.ENCRYPT_MODE, publicKey, new SecureRandom());
-				System.out.println("plainText length: " + plainText.length);
-				cipherText = inCipher.doFinal(plainText);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		
-		return cipherText;
-	}
-	
-	private ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
-		// Using this wrapper method in case the envelope changes at all :)
-		return byteArrayToList(decryptPayload(envelope.getPayload(), new IvParameterSpec(envelope.getIV())));
-	}
-	
-	private byte[] decryptPayload(byte[] cipherText, IvParameterSpec ivSpec) {
-		Cipher outCipher = null;
-		byte[] plainText = null;
-		
-		try {
-			outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-			outCipher.init(Cipher.DECRYPT_MODE, sessionKey, ivSpec);
-			plainText = outCipher.doFinal(cipherText);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return plainText;
-	}
-	
-	private byte[] listToByteArray(ArrayList<Object> list) {
-		byte[] returnBytes = null;
-		
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		ObjectOutputStream out = null;
-		try {
-		  out = new ObjectOutputStream(bos);   
-		  out.writeObject(list);
-		  returnBytes = bos.toByteArray();
-		  out.close();
-		  bos.close();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return returnBytes;
-	}
-	
-	private ArrayList<Object> byteArrayToList(byte[] byteArray) {
-		ArrayList<Object> list = null;
-		
-		ByteArrayInputStream bis = new ByteArrayInputStream(byteArray);
-		ObjectInput in = null;
-		try {
-		  in = new ObjectInputStream(bis);
-		  Object object = in.readObject();
-		  list = (ArrayList<Object>)object;
-		  bis.close();
-		  in.close();
-		  
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return list;
-	}
 }

@@ -29,8 +29,8 @@ public class FileClient extends Client implements FileClientInterface {
 	private String fingerprint;
 	public String FSIP;
 	
-	public FileClient(String inputServer, int inputPort, ClientController cc) {
-		super(inputServer, inputPort, cc);
+	public FileClient(String inputServer, int inputPort, ClientController _cc) {
+		super(inputServer, inputPort, _cc);
 		// TODO Auto-generated constructor stub
 	}
 	
@@ -63,14 +63,11 @@ public class FileClient extends Client implements FileClientInterface {
 			output.writeObject(secureMessage);
 		
 			// Get the response from the server
-			System.out.println("right before waiting contents");
 			response = (Envelope)input.readObject();
 			
 			//Successful response
-			
 			if(response.getMessage().equals("OK"))
 			{
-				System.out.println("Made it in");
 				//If there is a token in the Envelope, return it 
 				ArrayList<Object> temp = null;
 				temp = response.getObjContents();
@@ -78,11 +75,10 @@ public class FileClient extends Client implements FileClientInterface {
 				if(temp.size() == 1)
 				{
 					int returnNonce = (Integer)temp.get(0);
-					System.out.println("Nonce: "+returnNonce);
 					return returnNonce;
 				}
 			}
-			System.out.println("Failed");
+			
 			return -1;
 		}
 		catch(Exception e)
@@ -398,118 +394,7 @@ public class FileClient extends Client implements FileClientInterface {
 	}
 	
 	
-	/* Crypto Related Methods
-	 * 
-	 * These methods will abstract the whole secure session process.
-	 * 
-	 */
-	 
-	private SecureEnvelope makeSecureEnvelope(String msg, ArrayList<Object> list) {
-		// Make a new envelope
-	SecureEnvelope envelope = new SecureEnvelope(msg);
 	
-	// Create new ivSpec
-	IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]);
-	
-	// Set the ivSpec in the envelope
-	envelope.setIV(ivSpec.getIV());
-	
-	// Set the payload using the encrypted ArrayList
-		envelope.setPayload(encryptPayload(listToByteArray(list), true, ivSpec));
-		
-		return envelope;
-		
-	}
-	
-	private byte[] encryptPayload(byte[] plainText, boolean useSessionKey, IvParameterSpec ivSpec) {
-		byte[] cipherText = null;
-		Cipher inCipher;
-		
-		if (useSessionKey) {
-			// TODO
-		try {
-			inCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-			inCipher.init(Cipher.ENCRYPT_MODE, sessionKey, ivSpec);
-			cipherText = inCipher.doFinal(plainText);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	else { // Use public key RSA
-		try {
-			inCipher = Cipher.getInstance("RSA", "BC");
-			inCipher.init(Cipher.ENCRYPT_MODE, publicKey, new SecureRandom());
-			System.out.println("plainText length: " + plainText.length);
-			cipherText = inCipher.doFinal(plainText);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		
-		return cipherText;
-	}
-	
-	private ArrayList<Object> getDecryptedPayload(SecureEnvelope envelope) {
-		// Using this wrapper method in case the envelope changes at all :)
-		return byteArrayToList(decryptPayload(envelope.getPayload(), new IvParameterSpec(envelope.getIV())));
-	}
-	
-	private byte[] decryptPayload(byte[] cipherText, IvParameterSpec ivSpec) {
-		Cipher outCipher = null;
-		byte[] plainText = null;
-		
-		try {
-			outCipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
-		outCipher.init(Cipher.DECRYPT_MODE, sessionKey, ivSpec);
-		plainText = outCipher.doFinal(cipherText);
-	} catch (Exception e) {
-		// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return plainText;
-	}
-	
-	protected byte[] listToByteArray(ArrayList<Object> list) {
-		byte[] returnBytes = null;
-		
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		ObjectOutputStream out = null;
-		try {
-		  out = new ObjectOutputStream(bos);   
-		  out.writeObject(list);
-		  returnBytes = bos.toByteArray();
-		  out.close();
-		  bos.close();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return returnBytes;
-	}
-	
-	private ArrayList<Object> byteArrayToList(byte[] byteArray) {
-		ArrayList<Object> list = null;
-		
-		ByteArrayInputStream bis = new ByteArrayInputStream(byteArray);
-		ObjectInput in = null;
-		try {
-		  in = new ObjectInputStream(bis);
-		  Object object = in.readObject();
-		  list = (ArrayList<Object>)object;
-		  bis.close();
-		  in.close();
-		  
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return list;
-	}
 
 }
 

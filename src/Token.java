@@ -15,32 +15,25 @@ public class Token implements UserToken, Serializable {
 		subject = subject_;
 		groups = groups_;
 	}
+	
+	public Token(String issuer_, String subject_, HashSet<String> groups_, String IP_) {
+	     this(issuer_, subject_, groups_);
+	     IP = IP_;
+	}
+	
+	public Token(String issuer_, String subject_, HashSet<String> groups_, byte[] signature_, String IP_) {
+	     this(issuer_, subject_, groups_);
+	     signature = Arrays.copyOf(signature_, signature_.length);
+	     IP = IP_;
+	}
 
 	public Token(String issuer_, String subject_, HashSet<String> groups_, byte[] signature_) {
 		this(issuer_, subject_, groups_);
 		signature = Arrays.copyOf(signature_, signature_.length);
 	}
-	
-	public Token(String issuer_, String subject_, HashSet<String> groups_, String IP_) {
-		this(issuer_, subject_, groups_);
-		IP = IP_;
-	}
-	public Token(String issuer_, String subject_, HashSet<String> groups_, byte[] signature_, String IP_) {
-		this(issuer_, subject_, groups_);
-		signature = Arrays.copyOf(signature_, signature_.length);
-		IP = IP_;
-	}
 
 	public String getIssuer() {
 		return issuer;
-	}
-	
-	public String getIP() {
-		return IP;
-	}
-	
-	public void setIP(String IP_) {
-		IP = IP_;
 	}
 
 	public void setSignature(byte[] signature_) {
@@ -49,6 +42,14 @@ public class Token implements UserToken, Serializable {
 
 	public byte[] getSignature() {
 		return signature;
+	}
+	
+	public String getIP() {
+			return IP;
+	}
+	
+	public void setIP(String IP_) {
+			IP = IP_;
 	}
 
 	public byte[] toByteArray() {
